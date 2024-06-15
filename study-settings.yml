@@ -1,0 +1,62 @@
+## Study-wise settings that can be shared publicly
+
+mri:
+  timings:
+    dwi: '33min 11s'
+    func_rest: '20min 6s'
+    func_bht: '5min 41s'
+    func_qct: '2min 38s'
+
+psychopy:
+  tasks:
+    dwi: 'task-fixation_dwi'
+    func_rest: 'task-rest_bold'
+    func_bht: 'task-bht_bold'
+    func_qct: 'task-qct_bold'
+  version: '2023.2.3'
+  wxPython: '4.2.1'
+  ubuntu: '22.04 LTS'
+  python: '3.10'
+
+paths:
+  sourcedata: '/data/datasets/hcph-sourcedata'
+  pilot_sourcedata: '/data/datasets/hcph-pilot-sourcedata'
+  hcph_bids: '/data/datasets/hcph-dataset'
+
+eyetracker:
+  vendor: 'SR Research Ltd.'
+  place: 'Ottawa, Canada'
+  model: 'EyeLink 1000 Plus'
+  submodel: 'Long Range'
+  eye: 'right'
+
+gas:
+  vendor: 'AD Instruments Pty. Ltd.'
+  place: 'Sydney, Australia'
+  model: 'ML206'
+  tube: 'MLA0343'
+  chamber: 'DM-060-24'
+  valve: 'MLA0110'
+
+biopac:
+  vendor: 'BIOPAC Systems, Inc.'
+  place: 'Goleta, CA, US'
+  model: 'MP160'
+  digital: 'SPT100D'
+  analog: 'AMI100C'
+  rb_unit: 'DA100C'
+  rb_trans: 'TSD160A'
+  rb_sensor: 'TSD221-MRI'
+  rb_tube_long: 'AFT30-XL'
+  rb_tube_long_length: '10 m'
+  rb_tube_short: 'AFT30-L'
+  rb_tube_short_length: '4 m'
+  ecg_unit: 'ECG100C'
+  ecg_trans: 'MECMRI-2'
+  pinkbox: 'MMBT-S'
+  pinkbox_long: 'MMBT-S Trigger Interface Box adapter'
+
+versions:
+  mriqc: '23.1.0'
+  fmriprep: 'xxxx'
+  dmriprep: 'xxxx'

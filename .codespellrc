@@ -1,0 +1,5 @@
+[codespell]
+skip = *.pdf,./site/*,./design/*,./docs/stylesheets/*,*-fr.md,./code/heudiconv/*.py,./include/abbreviations.md,*.ipynb
+builtin = clear,rare,en-GB_to_en-US
+count =
+quiet-level = 3

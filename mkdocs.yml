@@ -1,0 +1,136 @@
+site_name: "Standard Operating Procedures of the HCPh project"
+site_description: Step-by-step instructions (standard operating procedures; SOPs) to replicate our Human Connectome PHantom project (HCPh)
+site_author: The AxonLab
+
+# Copyright
+copyright: Copyright © 2023
+
+nav:
+    - Home: index.md
+    - Change History: changes.md
+    - Recruitment, Scheduling, and Screening:
+      - Recruitment and screening: recruitment-scheduling-screening/recruitment.md
+      - Scheduling: recruitment-scheduling-screening/scheduling.md
+    - Data collection:
+      - Overall experimental settings: data-collection/intro.md
+      - Before data collection starts: data-collection/setup.md
+      - Before session day: data-collection/pre-session.md
+      - Session preparation: data-collection/tear-up.md
+      - Preparing the participant: data-collection/participant-prep.md
+      - Running the scanning session: data-collection/scanning.md
+      - Session tear-down: data-collection/tear-down.md
+      - Emergency procedures: data-collection/emergency-procedures.md
+    - Data management:
+      - Overall post-scanner steps: data-management/intro.md
+      - Before data acquisition (storage preparation): data-management/preliminary.md
+      - Post-session retrieval and BIDS: data-management/post-session.md
+      - QA/QC protocol overview: data-management/qaqc-general.md
+      - QC of unprocessed data: data-management/mriqc.md
+    - Processing: 
+      - Preprocessing: processing/preprocessing.md
+      - Extracting functional connectivity: processing/functional-connectivity.md
+    - Analysis:
+      - Quality control task activation analysis: analysis/qct-activation.ipynb
+      - Calibrating regressor to flag HCPh T1w images for exclusion: analysis/qc-regressor-hcph.ipynb
+    - Release of data: release.md
+    - Appendices:
+      - Notes on the scanner's console: data-collection/notes-scanning.md
+      - ET extended guidelines: data-collection/notes-et.md
+      - Additional miscellaneous protocols: data-collection/notes-misc.md
+      - Notes on software installation and tips: data-collection/notes-software.md
+      - Converting physio into BIDS (notebook): data-management/physio-to-bids.ipynb
+      - Converting eye-tracking into BIDS: data-management/edf-to-bids.md
+    - QA/QC Appendices:
+      - QA/QC criteria for unprocessed data: data-management/qaqc-criteria-unprocessed.md
+      - QA/QC criteria for preprocessed data: processing/qaqc-criteria-preprocessed.md
+      - QA/QC criteria for functional connectivity: processing/qaqc-criteria-FC.md
+      - Eyetracking data screening (notebook): data-management/eyetrack-qc.ipynb
+    - Deprecated procedures:
+      - Legacy procedure for the ET mirror: data-collection/legacy-et.md
+
+theme:
+  name: material
+  palette:
+    primary: black
+  logo: assets/images/chuv_logo.svg
+  features:
+    # - tabs
+    - navigation.instant
+    # - navigation.tabs
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    admonition:
+      thanks: octicons/code-of-conduct-16
+      quote: fontawesome/solid/comment-dots
+      danger: fontawesome/solid/circle-exclamation
+      warning: fontawesome/solid/traffic-light
+      important: fontawesome/solid/bullhorn
+      tip: fontawesome/solid/bookmark
+      bug: fontawesome/regular/circle-xmark
+
+
+plugins:
+  - search
+  - macros:
+      include_dir: include
+      include_yaml:
+        - secrets: 'secrets/settings.yml'
+        - settings: 'study-settings.yml'
+      on_undefined: lax
+  - mkdocs-jupyter:
+      ignore:
+        - "*.py"
+        - "assets/code/physioconv/.ipynb_checkpoints/physio-to-bids-checkpoint.ipynb"
+        - "assets/code/physioconv/physio-to-bids.ipynb"
+  # - mkpdfs:
+  #     company: Lausanne University Hospital (CHUV)
+  #     author: The Axon Lab
+  #     toc_title: Table of Contents
+  #     design: design/report.css
+  #     output_path: pdf/documentation.pdf
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - footnotes
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      use_pygments: true
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      auto_append:
+        - include/abbreviations.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+      clickable_checkbox: true
+  - markdown_include.include:
+      base_path: docs
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - js/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

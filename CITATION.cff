@@ -1,0 +1,83 @@
+cff-version: 1.2.0
+title: >-
+  The Human Connectome PHantom (HCPh) study: Standard
+  Operating Procedures
+message: >-
+  If you use this dataset, please cite it using the metadata
+  from this file.
+type: dataset
+license: CC-BY-4.0
+abstract: >-
+  Standard operating procedures (SOPs) associated with our
+  HCPh study. Overall, this study will equip researchers
+  with a framework for extracting reliable and precise
+  structural, functional, and dynamic networks that permit
+  their joint modeling and analysis with interpretable and
+  reproducible methods. The project will publicly release
+  two highly valuable datasets necessary to improve the
+  workflow for structural and functional network extraction
+  under open access and reuse terms. Upon conclusion, this
+  study will mark a turning point for MRI research as a
+  fundamental resource for academic training and a necessary
+  assessment to unlock clinical applications in the
+  long-term with the improvement of the reliability of
+  MRI-network analyses. At a local scale, the project will
+  substantially contribute to ensuring the reliability of
+  the MRI clinical workflow that routinely aids medical
+  decisions at CHUV.
+authors:
+- affiliation: Department of Radiology, Lausanne University Hospital and University
+    of Lausanne, Lausanne, Switzerland
+  family-names: Provins
+  given-names: Céline
+  orcid: https://orcid.org/0000-0002-1668-9629
+- affiliation: Department of Radiology, Lausanne University Hospital and University
+    of Lausanne, Lausanne, Switzerland
+  family-names: Savary
+  given-names: Elodie
+  orcid: https://orcid.org/0000-0002-3896-6906
+- affiliation: Department of Radiology, Lausanne University Hospital and University
+    of Lausanne, Lausanne, Switzerland
+  family-names: Cionca
+  given-names: Alexandre
+  orcid: https://orcid.org/0000-0002-1910-9650
+- affiliation: Department of Radiology, Lausanne University Hospital and University
+    of Lausanne, Lausanne, Switzerland
+  family-names: Lajous
+  given-names: Hélène
+  orcid: https://orcid.org/0000-0001-7729-6274
+- affiliation: Department of Radiology, Lausanne University Hospital and University
+    of Lausanne, Lausanne, Switzerland
+  family-names: de Riedmatten
+  given-names: Inès
+  orcid: https://orcid.org/0000-0003-0383-4046
+- affiliation: Institute of Systems Engineering, School of Engineering, HES-SO Valais-Wallis,
+    Sion, Switzerland
+  family-names: Franceschiello
+  given-names: Benedetta
+  orcid: https://orcid.org/0000-0003-0754-5081
+- affiliation: Department of Radiology, Lausanne University Hospital and University
+    of Lausanne, Lausanne, Switzerland
+  family-names: Esteban
+  given-names: Oscar
+  orcid: https://orcid.org/0000-0001-8435-6191
+identifiers:
+  - type: doi
+    value: 10.17605/OSF.IO/VAMQ6
+    description: OSF-Standard Pre-Data Collection Registration
+repository-code: 'https://github.com/TheAxonLab/hcph-sops'
+url: 'https://www.axonlab.org/hcph-sops'
+keywords:
+  - neuroimaging
+  - quality control
+  - exclusion criteria
+  - standard operating procedures
+  - protocol
+  - HCPh
+  - connectivity
+  - MRI
+  - fMRI
+  - dMRI
+  - fMRIPrep
+  - MRIQC
+  - DataLad

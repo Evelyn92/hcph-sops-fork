@@ -1,0 +1,13 @@
+{
+  "code-block-style": {
+    "style": "fenced"
+  },
+  "code-fence-style": {
+    "style": "backtick"
+  },
+  "MD013": {
+    "line_length": 300,
+    "code_block_line_length": 120,
+    "tables": false
+  }
+}

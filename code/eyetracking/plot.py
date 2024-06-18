@@ -43,6 +43,7 @@ def plot_heatmap_coordinate(
     screen_size: Tuple[int, int] = (800, 600),
     background_image=None,
     ax=None,
+    title=None
 ) -> plt.Figure:
     """
     Plots a heatmap for eye tracking coordinates.
@@ -120,5 +121,7 @@ def plot_heatmap_coordinate(
     ax.set_yticks([])
     ax.set_xlabel("x coordinate [pixels]")
     ax.set_ylabel("y coordinate [pixels]")
+    if title is not None:
+        ax.set_title(title)
 
     return ax

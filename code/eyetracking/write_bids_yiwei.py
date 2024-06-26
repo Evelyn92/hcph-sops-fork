@@ -617,15 +617,19 @@ def write_bids_from_df(
     # exp_run: str | Path,
 ) -> List[str]:
     """
-    Save an eye-tracking run into a existing BIDS structure.
+    Directly save the eye-tracking recording/metadata into a  BIDS structure.
 
     Parameters
     ----------
-    et_run : :obj:`EyeTrackingRun`
-        An object representing an eye-tracking run.
-    exp_run : :obj:`os.pathlike`
-        The path of the corresponding neuroimaging experiment in BIDS. Should refer to files (with suffixes)
-
+    recording : dataframe
+        The recording data extracted from the EDF file.
+    metadata : dict
+        The metadata extracted from the EDF file.
+    out_dir : obj:`os.pathlike`
+        The path of EDF file. Refers to the folder (not the EDF file).
+    filename: str
+        The filename of the EDF file. The file name without the suffix, eg: "Subject001"
+    
     Returns
     -------
     List[str]
@@ -640,14 +644,7 @@ def write_bids_from_df(
 
     # Write out data
     out_tsvgz = out_dir / (filename + ".tsv.gz")
-    # recording.to_csv(
-    #     out_tsvgz,
-    #     sep="\t",
-    #     index=False,
-    #     header=False,
-    #     compression="gzip",
-    #     na_rep="n/a",
-    # )
+
     recording.to_csv(
         out_tsvgz,
         sep="\t",

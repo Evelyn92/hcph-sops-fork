@@ -108,7 +108,7 @@ def plot_heatmap_coordinate(
             data["x_coordinate"],
             data["y_coordinate"],
             range=clip,
-            bins=(screen_size[0] // 10, screen_size[1] // 10),
+            bins=(screen_size[0] // 1, screen_size[1] // 1),
             cmap=cmap,
         )
 

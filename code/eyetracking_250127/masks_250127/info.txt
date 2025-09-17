@@ -1,0 +1,1 @@
+The number of point in preserved mask: 195358

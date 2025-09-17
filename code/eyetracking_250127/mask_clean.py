@@ -200,25 +200,28 @@ def visualization_func(fig_title,coor_data_raw, coor_data, coor_data_clean):
         print('lalla')
         plt.title(fig_title, fontproperties=title_font)
 #     -----------------------------------------------------------------------
-    # Plot the data, flipping X coordinates and using dots as markers
-    X_coord_raw = coor_data_raw['x_coordinate']
-    Y_coord_raw = coor_data_raw['y_coordinate']
-    # plt.scatter(X_coord_raw, Y_coord_raw, s=50, c='coral', alpha=0.1, edgecolors='coral', linewidth=0.2) 
-    plt.scatter(X_coord_raw, Y_coord_raw, s=50, c='#00468b', alpha=0.1, edgecolors='#00468b', linewidth=0.2) 
+    if isinstance(coor_data_raw, pd.DataFrame):
+        # Plot the data, flipping X coordinates and using dots as markers
+        X_coord_raw = coor_data_raw['x_coordinate']
+        Y_coord_raw = coor_data_raw['y_coordinate']
+        # plt.scatter(X_coord_raw, Y_coord_raw, s=50, c='coral', alpha=0.1, edgecolors='coral', linewidth=0.2) 
+        plt.scatter(X_coord_raw, Y_coord_raw, s=50, c='#00468b', alpha=0.1, edgecolors='#00468b', linewidth=0.2) 
 #     -----------------------------------------------------------------------
-    coor_data_vis = copy.deepcopy(coor_data)
-    X_coord_1 = coor_data_vis['x_coordinate']
-    Y_coord_1 = coor_data_vis['y_coordinate']
-
-    # plt.plot(X_coord_1, Y_coord_1, '.', color='#728FCE', markersize=15, label='LIBRE w.o. binning')
-    plt.scatter(X_coord_1, Y_coord_1, s=50, c='#728FCE', alpha=0.1, edgecolors='#728FCE', linewidth=0.2)
+    if coor_data:
+        coor_data_vis = copy.deepcopy(coor_data)
+        X_coord_1 = coor_data_vis['x_coordinate']
+        Y_coord_1 = coor_data_vis['y_coordinate']
+    
+        # plt.plot(X_coord_1, Y_coord_1, '.', color='#728FCE', markersize=15, label='LIBRE w.o. binning')
+        plt.scatter(X_coord_1, Y_coord_1, s=50, c='#728FCE', alpha=0.1, edgecolors='#728FCE', linewidth=0.2)
     
 #     -----------------------------------------------------------------------
-    X_coord = coor_data_clean['x_coordinate']
-    Y_coord = coor_data_clean['y_coordinate']
- 
-    # plt.plot(X_coord, Y_coord, '.', color='#f4d03f', markersize=15, label='LIBRE binning')
-    plt.scatter(X_coord, Y_coord, s=50, c='#f4d03f', alpha=0.1, edgecolors='#f4d03f', linewidth=0.2)  # Larger points
+    if coor_data_clean:
+        X_coord = coor_data_clean['x_coordinate']
+        Y_coord = coor_data_clean['y_coordinate']
+     
+        # plt.plot(X_coord, Y_coord, '.', color='#f4d03f', markersize=15, label='LIBRE binning')
+        plt.scatter(X_coord, Y_coord, s=50, c='#f4d03f', alpha=0.1, edgecolors='#f4d03f', linewidth=0.2)  # Larger points
 #     ----------------------------------------------------------------------------------------------
     # plt.legend(prop={'family': 'Times New Roman', 'size': 20})
     
@@ -237,4 +240,4 @@ def visualization_func(fig_title,coor_data_raw, coor_data, coor_data_clean):
     plt.gca().invert_yaxis()
     plt.gca().invert_xaxis()
     
-    
+ 

@@ -1,1 +1,0 @@
-python funconn.py /home/cprovins/data/hcph-derivatives/fmriprep-23.1.4-wp/ --task qct --ses 001 003 004 005 006 008 009

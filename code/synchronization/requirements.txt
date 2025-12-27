@@ -1,4 +1,0 @@
-janus
-keyboard
-pyusb
-pyserial

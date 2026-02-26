@@ -184,7 +184,7 @@ def visualization_func(fig_title,coor_data_raw, coor_data, coor_data_clean):
     title_font = FontProperties(family='Times New Roman', size=20, weight='bold')
     axis_font = FontProperties(family='Times New Roman', size=16)
     
-    fig, ax= plt.subplots(figsize=(4, 3))
+    fig, ax= plt.subplots(figsize=(8, 6))
     turn_off_ticks = True
     if turn_off_ticks:
         ax.set_xticks([])

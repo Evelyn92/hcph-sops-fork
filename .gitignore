@@ -135,3 +135,9 @@ dmypy.json
 
 #Git submodule
 .gitmodules
+
+
+#output files
+.pdf
+*.mat
+/mreye2p0_fixed/masks/

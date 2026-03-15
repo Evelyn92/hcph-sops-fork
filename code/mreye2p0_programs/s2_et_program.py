@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -35,6 +37,7 @@ from mask_clean import (  # noqa: E402
 START_RECORDING_MESSAGE = "RECCFG CR 1000 2 0 R"
 START_RECORDING_MESSAGE_BACKUP = "ELCLCFG TOWER"
 TRIGGER_MESSAGE = "Key s trigger response"
+FILER_RECON_ROOT = Path("/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results")
 
 TWIX_BY_TIDX = {
     1: 371817.0,
@@ -42,31 +45,57 @@ TWIX_BY_TIDX = {
 }
 
 
-def choose_file_interactive(use_gui_picker: bool = False) -> Path:
+def choose_file_interactive(use_gui_picker: bool = True) -> Path:
+    if use_gui_picker:
+        if platform.system() == "Darwin":
+            result = subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    'set f to choose file with prompt "Select a .tsv.gz ET file"',
+                    "-e",
+                    "POSIX path of f",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                selected = result.stdout.strip()
+                if selected:
+                    selected_path = Path(selected)
+                    if selected_path.name.endswith(".tsv.gz"):
+                        return selected_path
+                    print("Selected file is not .tsv.gz, please pick again or paste a path.")
+            else:
+                err = (result.stderr or "").strip()
+                if err:
+                    print(f"GUI selection canceled or unavailable ({err}).")
+                else:
+                    print("GUI selection canceled or unavailable.")
+
+        # Fallback GUI picker (avoid file type filter to prevent macOS Tk crashes seen before).
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            root = tk.Tk()
+            root.withdraw()
+            selected = filedialog.askopenfilename(title="Select a .tsv.gz ET file")
+            root.destroy()
+            if selected:
+                selected_path = Path(selected)
+                if selected_path.name.endswith(".tsv.gz"):
+                    return selected_path
+                print("Selected file is not .tsv.gz, please pick again or paste a path.")
+        except Exception as exc:
+            print(f"Secondary GUI picker failed ({exc}).")
+        if platform.system() != "Darwin":
+            print("GUI picker is currently implemented for macOS only; falling back to prompt.")
+
     entered = input("Enter full path to .tsv.gz file: ").strip()
     if entered:
         return Path(entered)
-
-    if not use_gui_picker:
-        raise RuntimeError("No TSV file provided. Re-run with --input, paste a path, or use --gui-picker.")
-
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-
-        root = tk.Tk()
-        root.withdraw()
-        selected = filedialog.askopenfilename(
-            title="Select a .tsv.gz ET file",
-            filetypes=[("TSV.GZ files", "*.tsv.gz"), ("All files", "*.*")],
-        )
-        root.destroy()
-        if selected:
-            return Path(selected)
-    except Exception:
-        pass
-
-    raise RuntimeError("GUI picker failed. Re-run with --input or paste a path at the prompt.")
+    raise RuntimeError("No TSV file provided.")
 
 
 def ask_criteria_ratio(default: float = 0.15) -> float:
@@ -98,6 +127,56 @@ def extract_run_info(input_file: Path) -> tuple[str, int]:
     return subject_idx, t_idx
 
 
+def sync_to_filer_if_available(
+    input_file: Path,
+    subject_idx: str,
+    local_mask_file: Path,
+    local_fig_dir: Path,
+    criteria_tag: str,
+) -> None:
+    if not FILER_RECON_ROOT.exists():
+        print(f"Filer not found at {FILER_RECON_ROOT}; skipping sync.")
+        return
+
+    recon_folder_date = input_file.parent.name
+    recon_base = FILER_RECON_ROOT / recon_folder_date / f"{subject_idx}_recon" / "T1_LIBRE_Binning"
+    mask_dst = recon_base / "et_masks"
+    figs_dst = recon_base / "et_figs"
+    mask_dst.mkdir(parents=True, exist_ok=True)
+    figs_dst.mkdir(parents=True, exist_ok=True)
+
+    try:
+        subprocess.run(
+            ["rsync", "-av", str(local_mask_file), f"{mask_dst}/"],
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"Warning: filer mask sync failed ({exc}); local outputs kept.")
+        return
+    to_sync = []
+    to_sync.extend(sorted(local_fig_dir.glob(f"*_{criteria_tag}.pdf")))
+    to_sync.extend(sorted(local_fig_dir.glob(f"*_{criteria_tag}.png")))
+    for stem in (
+        "2_0_mreye_et_raw",
+        "2_0_mreye_et_nomo",
+    ):
+        for ext in ("pdf", "png"):
+            candidate = local_fig_dir / f"{stem}.{ext}"
+            if candidate.exists():
+                to_sync.append(candidate)
+
+    if not to_sync:
+        print(f"No figures found to sync for {criteria_tag}; skipping figure sync.")
+    else:
+        for fig in to_sync:
+            try:
+                subprocess.run(["rsync", "-av", str(fig), f"{figs_dst}/"], check=True)
+            except subprocess.CalledProcessError as exc:
+                print(f"Warning: filer figure sync failed for {fig.name} ({exc}); continuing.")
+    print(f"Synced mask to filer: {mask_dst}")
+    print(f"Synced figures to filer: {figs_dst}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run ET filtering/mask generation from S2 notebook logic.")
     parser.add_argument("--input", type=Path, help="Input .tsv.gz file")
@@ -105,10 +184,10 @@ def main() -> int:
     parser.add_argument("--twix-duration", type=float, help="Override twix duration in ms")
     parser.add_argument("--first-trigger-mr-start", type=float, default=0.0)
     parser.add_argument("--output-root", type=Path, default=Path("."), help="Root folder for ./output_figs and ./masks")
-    parser.add_argument("--gui-picker", action="store_true", help="Use macOS/GUI file picker as fallback if no path is pasted.")
+    parser.add_argument("--no-gui-picker", action="store_true", help="Disable GUI picker and prompt for a path in terminal.")
     args = parser.parse_args()
 
-    input_file = args.input if args.input else choose_file_interactive(use_gui_picker=args.gui_picker)
+    input_file = args.input if args.input else choose_file_interactive(use_gui_picker=not args.no_gui_picker)
     input_file = input_file.expanduser().resolve()
     if not input_file.exists():
         raise FileNotFoundError(f"Input file not found: {input_file}")
@@ -116,6 +195,7 @@ def main() -> int:
     criteria_ratio = args.criteria_ratio if args.criteria_ratio is not None else ask_criteria_ratio(0.15)
     if criteria_ratio <= 0:
         raise ValueError("criteria_ratio must be > 0")
+    criteria_tag = f"crit{criteria_ratio}"
 
     subject_idx, t_idx = extract_run_info(input_file)
     mode = "T1" if t_idx == 1 else "T2"
@@ -208,9 +288,11 @@ def main() -> int:
     fig_numbers = plt.get_fignums()
     if len(fig_numbers) >= 2:
         plt.figure(fig_numbers[-2])
-        plt.savefig(output_figs_dir / "2_0_mreye_et_horizontal_disp.pdf", dpi=300, bbox_inches="tight")
+        plt.savefig(output_figs_dir / f"2_0_mreye_et_horizontal_disp_{criteria_tag}.pdf", dpi=300, bbox_inches="tight")
+        plt.savefig(output_figs_dir / f"2_0_mreye_et_horizontal_disp_{criteria_tag}.png", dpi=300, bbox_inches="tight")
         plt.figure(fig_numbers[-1])
-        plt.savefig(output_figs_dir / "2_0_mreye_et_vertical_disp.pdf", dpi=300, bbox_inches="tight")
+        plt.savefig(output_figs_dir / f"2_0_mreye_et_vertical_disp_{criteria_tag}.pdf", dpi=300, bbox_inches="tight")
+        plt.savefig(output_figs_dir / f"2_0_mreye_et_vertical_disp_{criteria_tag}.png", dpi=300, bbox_inches="tight")
 
     coor_data_ft_clean, Preserve_mask, Discard_mask = filter_XY_with_mask(
         coor_data_LIBRE_ft, discarded_x_mask, discarded_y_mask, seq_name=None
@@ -222,7 +304,8 @@ def main() -> int:
         coor_data=coor_data_LIBRE_ft,
         coor_data_clean=coor_data_ft_clean,
     )
-    plt.savefig(output_figs_dir / "2_0_mreye_et_filtering.pdf", dpi=300, bbox_inches="tight")
+    plt.savefig(output_figs_dir / f"2_0_mreye_et_filtering_{criteria_tag}.pdf", dpi=300, bbox_inches="tight")
+    plt.savefig(output_figs_dir / f"2_0_mreye_et_filtering_{criteria_tag}.png", dpi=300, bbox_inches="tight")
 
     visualization_func(
         fig_title="Before vs After (filtering)",
@@ -231,6 +314,7 @@ def main() -> int:
         coor_data_clean=0,
     )
     plt.savefig(output_figs_dir / "2_0_mreye_et_raw.pdf", dpi=300, bbox_inches="tight")
+    plt.savefig(output_figs_dir / "2_0_mreye_et_raw.png", dpi=300, bbox_inches="tight")
 
     visualization_func(
         fig_title="Before vs After (filtering)",
@@ -239,6 +323,7 @@ def main() -> int:
         coor_data_clean=0,
     )
     plt.savefig(output_figs_dir / "2_0_mreye_et_nomo.pdf", dpi=300, bbox_inches="tight")
+    plt.savefig(output_figs_dir / "2_0_mreye_et_nomo.png", dpi=300, bbox_inches="tight")
 
     count_true = int(np.sum(Preserve_mask))
     print(f"Preserved #ET samples: {count_true}")
@@ -258,6 +343,13 @@ def main() -> int:
     sio.savemat(mask_file, {"array": Preserve_mask_cat})
 
     print(f"The mask file has been saved here: ./{mask_file.relative_to(output_root).as_posix()}")
+    sync_to_filer_if_available(
+        input_file=input_file,
+        subject_idx=subject_idx,
+        local_mask_file=mask_file,
+        local_fig_dir=output_figs_dir,
+        criteria_tag=criteria_tag,
+    )
     return 0
 
 

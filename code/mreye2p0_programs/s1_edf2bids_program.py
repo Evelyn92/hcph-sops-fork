@@ -4,7 +4,9 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 from copy import deepcopy
 from itertools import groupby, product
@@ -98,6 +100,161 @@ def to_builtin(value: Any) -> Any:
     return value
 
 
+def _to_float(token: str) -> float | None:
+    if token in {".", "NaN", "nan"}:
+        return np.nan
+    try:
+        return float(token)
+    except ValueError:
+        return None
+
+
+def _run_edf2asc(edf_path: Path) -> Path:
+    asc_path = edf_path.with_suffix(".asc")
+    cmd = ["edf2asc", "-y", str(edf_path)]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    out = f"{result.stdout}\n{result.stderr}"
+    # Some EDFs return non-zero despite writing a valid ASC and printing success.
+    if result.returncode != 0 and not (asc_path.exists() and "Converted successfully" in out):
+        err = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"edf2asc failed for {edf_path}: {err}")
+    if not asc_path.exists():
+        raise RuntimeError(f"edf2asc completed but ASC not found: {asc_path}")
+    return asc_path
+
+
+def _parse_asc_as_tables(asc_path: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    records: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = []
+    fixations: list[dict[str, Any]] = []
+    saccades_raw: list[dict[str, Any]] = []
+    blinks: list[tuple[int, int]] = []
+
+    for line in asc_path.read_text(errors="ignore").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        head = parts[0]
+
+        if head == "MSG" and len(parts) >= 3:
+            try:
+                t = int(parts[1])
+            except ValueError:
+                continue
+            messages.append({"time": t, "trial": np.nan, "message": " ".join(parts[2:])})
+            continue
+
+        if head == "EFIX" and len(parts) >= 5:
+            try:
+                start = int(parts[2])
+                end = int(parts[3])
+            except ValueError:
+                continue
+            fixations.append({"type": "fixation", "start": start, "end": end, "contains_blink": 0})
+            continue
+
+        if head == "ESACC" and len(parts) >= 5:
+            try:
+                start = int(parts[2])
+                end = int(parts[3])
+            except ValueError:
+                continue
+            saccades_raw.append({"type": "saccade", "start": start, "end": end})
+            continue
+
+        if head == "EBLINK" and len(parts) >= 5:
+            try:
+                blinks.append((int(parts[2]), int(parts[3])))
+            except ValueError:
+                continue
+            continue
+
+        # Sample lines start with a timestamp; keep first-eye gaze x/y/pupil only.
+        if not head.isdigit():
+            continue
+        try:
+            t = int(head)
+        except ValueError:
+            continue
+
+        nums: list[float] = []
+        for tok in parts[1:]:
+            val = _to_float(tok)
+            if val is None:
+                continue
+            nums.append(val)
+            if len(nums) >= 3:
+                break
+
+        gx = nums[0] if len(nums) > 0 else np.nan
+        gy = nums[1] if len(nums) > 1 else np.nan
+        pa = nums[2] if len(nums) > 2 else np.nan
+        records.append(
+            {
+                "time": t,
+                "gx_right": gx,
+                "gy_right": gy,
+                "pa_right": pa,
+            }
+        )
+
+    events: list[dict[str, Any]] = []
+    events.extend(fixations)
+    for s in saccades_raw:
+        contains_blink = 0
+        for bstart, bend in blinks:
+            if not (s["end"] < bstart or s["start"] > bend):
+                contains_blink = 1
+                break
+        s = dict(s)
+        s["contains_blink"] = contains_blink
+        events.append(s)
+
+    recording_df = pd.DataFrame.from_records(records)
+    events_df = pd.DataFrame.from_records(events)
+    messages_df = pd.DataFrame.from_records(messages)
+
+    if recording_df.empty:
+        raise RuntimeError(f"ASC parsing produced no samples: {asc_path}")
+    if messages_df.empty:
+        warn(f"ASC parsing produced no messages: {asc_path}")
+        messages_df = pd.DataFrame(columns=["time", "trial", "message"])
+    if events_df.empty:
+        events_df = pd.DataFrame(columns=["type", "start", "end", "contains_blink"])
+
+    return recording_df, events_df, messages_df
+
+
+def read_edf_with_fallback(edf_path: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    with tempfile.TemporaryDirectory(prefix="s1_edfread_") as td:
+        td_path = Path(td)
+        rec_pkl = td_path / "recording.pkl"
+        evt_pkl = td_path / "events.pkl"
+        msg_pkl = td_path / "messages.pkl"
+        py_script = f"""
+from pyedfread import read_edf
+rec, evt, msg = read_edf(r'''{edf_path}''')
+rec.to_pickle(r'''{rec_pkl}''')
+evt.to_pickle(r'''{evt_pkl}''')
+msg.to_pickle(r'''{msg_pkl}''')
+"""
+        proc = subprocess.run([sys.executable, "-c", py_script], capture_output=True, text=True)
+        if proc.returncode == 0 and rec_pkl.exists() and evt_pkl.exists() and msg_pkl.exists():
+            return pd.read_pickle(rec_pkl), pd.read_pickle(evt_pkl), pd.read_pickle(msg_pkl)
+
+        err = (proc.stderr or proc.stdout or "").strip()
+        if err:
+            warn(f"pyedfread subprocess failed for {edf_path}: {err}")
+        else:
+            warn(f"pyedfread subprocess failed for {edf_path} with code {proc.returncode}")
+
+    asc_path = _run_edf2asc(edf_path)
+    rec, ev, msg = _parse_asc_as_tables(asc_path)
+    print(f"Fallback parser used: {asc_path}")
+    return rec, ev, msg
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Convert one EDF file to BIDS eyetracking TSV/JSON.")
     parser.add_argument("--edf", type=Path, help="Path to input EDF file.")
@@ -117,7 +274,7 @@ def main() -> int:
     out_dir = args.out_dir.expanduser().resolve() if args.out_dir else data_path
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    ori_recording, events, ori_messages = read_edf(str(edf_path))
+    ori_recording, events, ori_messages = read_edf_with_fallback(edf_path)
 
     ori_messages = ori_messages.rename(
         columns={

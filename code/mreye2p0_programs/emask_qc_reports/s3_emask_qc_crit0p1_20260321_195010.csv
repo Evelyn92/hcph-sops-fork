@@ -1,0 +1,13 @@
+subject,sequence,mid,expected_size,actual_size,status,mask_file,note
+0014,T1w,MID14269,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0014/MID14269_recon/T1_LIBRE_Binning/et_masks/subject_MID14269_mask_clean_0.1.mat,
+0014,T2w,MID14284,646618,646618,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0014/MID14284_recon/T1_LIBRE_Binning/et_masks/subject_MID14284_mask_clean_0.1.mat,
+0015,T1w,MID15302,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0015/MID15302_recon/T1_LIBRE_Binning/et_masks/subject_MID15302_mask_clean_0.1.mat,
+0015,T2w,MID15317,646618,646618,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0015/MID15317_recon/T1_LIBRE_Binning/et_masks/subject_MID15317_mask_clean_0.1.mat,
+0016,T1w,MID16351,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0016/MID16351_recon/T1_LIBRE_Binning/et_masks/subject_MID16351_mask_clean_0.1.mat,
+0016,T2w,MID16336,646618,646618,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0016/MID16336_recon/T1_LIBRE_Binning/et_masks/subject_MID16336_mask_clean_0.1.mat,
+0017,T1w,MID17368,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0017/MID17368_recon/T1_LIBRE_Binning/et_masks/subject_MID17368_mask_clean_0.1.mat,
+0017,T2w,MID17383,646618,646618,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0017/MID17383_recon/T1_LIBRE_Binning/et_masks/subject_MID17383_mask_clean_0.1.mat,
+0018,T1w,MID18395,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0018/MID18395_recon/T1_LIBRE_Binning/et_masks/subject_MID18395_mask_clean_0.1.mat,
+0018,T2w,MID00425,646618,,MISSING,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0018/MID00425_recon/T1_LIBRE_Binning/et_masks/subject_MID00425_mask_clean_0.1.mat,mask file not found
+0019,T1w,MID19468,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0019/MID19468_recon/T1_LIBRE_Binning/et_masks/subject_MID19468_mask_clean_0.1.mat,
+0019,T2w,MID19472,646618,646618,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0019/MID19472_recon/T1_LIBRE_Binning/et_masks/subject_MID19472_mask_clean_0.1.mat,

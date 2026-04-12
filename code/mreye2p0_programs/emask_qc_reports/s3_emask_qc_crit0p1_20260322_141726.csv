@@ -1,0 +1,3 @@
+subject,sequence,mid,expected_size,actual_size,status,mask_file,note
+0018,T1w,MID18395,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0018/MID18395_recon/T1_LIBRE_Binning/et_masks/subject_MID18395_mask_clean_0.1.mat,
+0018,T2w,MID18436,646618,646618,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0018/MID18436_recon/T1_LIBRE_Binning/et_masks/subject_MID18436_mask_clean_0.1.mat,

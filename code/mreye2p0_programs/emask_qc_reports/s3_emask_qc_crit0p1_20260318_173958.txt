@@ -1,0 +1,31 @@
+criterion: 0.1
+checked_rows: 26
+ok_rows: 12
+problem_rows: 14
+
+0001 | T1w | MID00136 | expected=371817 | actual=371817 | OK |
+0001 | T2w | MID00137 | expected=646618 | actual=missing | MISSING | mask file not found
+0002 | T1w | MID00481 | expected=371817 | actual=371817 | OK |
+0002 | T2w | MID00482 | expected=646618 | actual=missing | MISSING | mask file not found
+0003 | T1w | MID00760 | expected=371817 | actual=missing | MISSING | mask file not found
+0003 | T2w | MID00761 | expected=646618 | actual=missing | MISSING | mask file not found
+0004 | T1w | MID00915 | expected=371817 | actual=missing | MISSING | mask file not found
+0004 | T2w | MID00916 | expected=646618 | actual=missing | MISSING | mask file not found
+0005 | T1w | MID00030 | expected=371817 | actual=missing | MISSING | mask file not found
+0005 | T2w | MID00025 | expected=646618 | actual=missing | MISSING | mask file not found
+0006 | T1w | MID00059 | expected=371817 | actual=371817 | OK |
+0006 | T2w | MID00064 | expected=646618 | actual=missing | MISSING | mask file not found
+0007 | T1w | MID00025 | expected=371817 | actual=371817 | OK |
+0007 | T2w | MID00030 | expected=646618 | actual=371817 | SIZE_MISMATCH | expected around 646618, got 371817
+0008 | T1w | MID00548 | expected=371817 | actual=371817 | OK |
+0008 | T2w | MID00564 | expected=646618 | actual=missing | MISSING | mask file not found
+0009 | T1w | MID00583 | expected=371817 | actual=missing | MISSING | mask file not found
+0009 | T2w | MID00599 | expected=646618 | actual=missing | MISSING | mask file not found
+0010 | T1w | MID00616 | expected=371817 | actual=371817 | OK |
+0010 | T2w | MID00632 | expected=646618 | actual=missing | MISSING | mask file not found
+0011 | T1w | MID01136 | expected=371817 | actual=371817 | OK |
+0011 | T2w | MID01141 | expected=646618 | actual=646618 | OK |
+0012 | T1w | MID12072 | expected=371817 | actual=371817 | OK |
+0012 | T2w | MID12107 | expected=646618 | actual=646618 | OK |
+0013 | T1w | MID13138 | expected=371817 | actual=371817 | OK |
+0013 | T2w | MID13154 | expected=646618 | actual=646618 | OK |

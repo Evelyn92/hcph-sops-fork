@@ -1,0 +1,7 @@
+subject | sequence | mid | expected | actual | status
+0020 | T1w | MID20279 | 371817 | 371817 | OK
+0020 | T2w | MID20263 | 646618 | 646618 | OK
+0022 | T1w | MID22365 | 371817 | 371817 | OK
+0022 | T2w | MID22369 | 646618 | 646618 | OK
+
+All checked masks are within tolerance.

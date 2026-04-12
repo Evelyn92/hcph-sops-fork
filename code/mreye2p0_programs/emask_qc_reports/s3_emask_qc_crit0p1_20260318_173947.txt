@@ -1,0 +1,7 @@
+criterion: 0.1
+checked_rows: 2
+ok_rows: 1
+problem_rows: 1
+
+0001 | T1w | MID00136 | expected=371817 | actual=371817 | OK |
+0001 | T2w | MID00137 | expected=646618 | actual=missing | MISSING | mask file not found

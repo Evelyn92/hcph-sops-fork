@@ -156,6 +156,7 @@ def sync_to_filer_if_available(
     to_sync = []
     to_sync.extend(sorted(local_fig_dir.glob(f"*_{criteria_tag}.pdf")))
     to_sync.extend(sorted(local_fig_dir.glob(f"*_{criteria_tag}.png")))
+    to_sync.extend(sorted(local_fig_dir.glob(f"*_{criteria_tag}.txt")))
     for stem in (
         "2_0_mreye_et_raw",
         "2_0_mreye_et_nomo",
@@ -342,7 +343,23 @@ def main() -> int:
     mask_file = mask_dir / mask_name
     sio.savemat(mask_file, {"array": Preserve_mask_cat})
 
+    summary_file = output_figs_dir / f"2_0_mreye_et_summary_{criteria_tag}.txt"
+    summary_lines = [
+        f"input_file: {input_file}",
+        f"subject_idx: {subject_idx}",
+        f"T_idx: {t_idx}",
+        f"criteria_ratio: {criteria_ratio}",
+        f"Preserved #ET samples: {count_true}",
+        f"Size of mask before concatenation: {len(Preserve_mask)}",
+        f"Concatenating prefix offset {offset}",
+        f"Size of mask after concatenation: {len(Preserve_mask_cat)}",
+        f"twix_duration: {twix_duration}",
+        f"mask_file: {mask_file}",
+    ]
+    summary_file.write_text("\n".join(summary_lines) + "\n")
+
     print(f"The mask file has been saved here: ./{mask_file.relative_to(output_root).as_posix()}")
+    print(f"Run summary has been saved here: ./{summary_file.relative_to(output_root).as_posix()}")
     sync_to_filer_if_available(
         input_file=input_file,
         subject_idx=subject_idx,

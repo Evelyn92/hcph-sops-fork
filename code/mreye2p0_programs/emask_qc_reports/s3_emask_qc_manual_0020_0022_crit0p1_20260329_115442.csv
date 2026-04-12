@@ -1,0 +1,5 @@
+subject,sequence,mid,expected_size,actual_size,status,mask_file,note
+0020,T1w,MID20279,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0020/MID20279_recon/T1_LIBRE_Binning/et_masks/subject_MID20279_mask_clean_0.1.mat,
+0020,T2w,MID20263,646618,646618,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0020/MID20263_recon/T1_LIBRE_Binning/et_masks/subject_MID20263_mask_clean_0.1.mat,
+0022,T1w,MID22365,371817,371817,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0022/MID22365_recon/T1_LIBRE_Binning/et_masks/subject_MID22365_mask_clean_0.1.mat,
+0022,T2w,MID22369,646618,646618,OK,/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/recon_results/0022/MID22369_recon/T1_LIBRE_Binning/et_masks/subject_MID22369_mask_clean_0.1.mat,

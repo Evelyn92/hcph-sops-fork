@@ -45,6 +45,172 @@ TWIX_BY_TIDX = {
 }
 
 
+def to_builtin(value: object) -> object:
+    if isinstance(value, dict):
+        return {k: to_builtin(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [to_builtin(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(to_builtin(v) for v in value)
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def identify_start_end_event(df: pd.DataFrame, events: list[str]) -> dict[str, object]:
+    event_dict: dict[str, object] = {}
+    df = df.reset_index(drop=True).copy()
+
+    for event in events:
+        if event not in df.columns:
+            raise KeyError(f"Missing event column: {event}")
+
+        event_shift = f"{event}_shift"
+        event_change = f"{event}_change"
+
+        df[event_shift] = df[event].shift(1, fill_value=0)
+        df[event_change] = df[event] - df[event_shift]
+
+        event_starts = df.index[df[event_change] == 1].tolist()
+        event_ends = df.index[df[event_change] == -1].tolist()
+
+        if len(event_starts) > len(event_ends) and int(df[event].iloc[-1]) == 1:
+            event_ends.append(df.index[-1])
+
+        event_durations = [end - start + 1 for start, end in zip(event_starts, event_ends)]
+        event_dict[f"num_{event}"] = len(event_starts)
+        event_dict[f"{event}_durations"] = event_durations
+
+    return event_dict
+
+
+def cal_event_stat(event_duration: list[int] | np.ndarray) -> dict[str, float | int]:
+    event_duration = np.asarray(event_duration)
+    if event_duration.size == 0:
+        return {
+            "mean_duration": np.nan,
+            "median_duration": np.nan,
+            "std_duration": np.nan,
+            "min_duration": np.nan,
+            "max_duration": np.nan,
+            "total_duration": 0,
+            "times": 0,
+        }
+
+    return {
+        "mean_duration": float(np.mean(event_duration)),
+        "median_duration": float(np.median(event_duration)),
+        "std_duration": float(np.std(event_duration)),
+        "min_duration": int(np.min(event_duration)),
+        "max_duration": int(np.max(event_duration)),
+        "total_duration": int(np.sum(event_duration)),
+        "times": int(len(event_duration)),
+    }
+
+
+def save_event_statistics(
+    output_figs_dir: Path,
+    subject_idx: str,
+    coor_recording_libre: pd.DataFrame,
+) -> dict[str, dict[str, float | int]]:
+    events = ["saccade", "fixation", "blink"]
+    subject_event_dict = identify_start_end_event(coor_recording_libre, events)
+    subject_event_stat = {
+        event: cal_event_stat(subject_event_dict[f"{event}_durations"])
+        for event in events
+    }
+
+    subject_event_stat_df = pd.DataFrame(subject_event_stat).T
+    subject_event_stat_df.index.name = "event"
+
+    print("")
+    print("Event statistics:")
+    print(subject_event_stat_df.to_string())
+
+    event_stats_json = output_figs_dir / "2_0_mreye_et_event_stats.json"
+    event_stats_txt = output_figs_dir / "2_0_mreye_et_event_stats.txt"
+    event_stats_payload = {
+        "subject_idx": subject_idx,
+        "event_stats": subject_event_stat,
+        "event_counts": {k: v for k, v in subject_event_dict.items() if k.startswith("num_")},
+    }
+    with event_stats_json.open("w") as f:
+        json.dump(to_builtin(event_stats_payload), f, indent=2)
+    event_stats_txt.write_text(
+        "\n".join(
+            [
+                f"subject_idx: {subject_idx}",
+                "",
+                subject_event_stat_df.to_string(),
+                "",
+                f"event_counts: {event_stats_payload['event_counts']}",
+            ]
+        )
+        + "\n"
+    )
+
+    print(f"Event statistics saved here: {event_stats_json}")
+    print(f"Event statistics text saved here: {event_stats_txt}")
+    for event in events:
+        print(f"{event}: {subject_event_stat[event]}")
+
+    return subject_event_stat
+
+
+def _plot_kde_dimension(
+    output_figs_dir: Path,
+    raw_values: pd.Series,
+    filtered_values: pd.Series,
+    dimension_name: str,
+    title: str,
+    x_label: str,
+    x_limits: tuple[float, float],
+) -> None:
+    fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+    raw = raw_values.dropna()
+    filtered = filtered_values.dropna()
+
+    plotted = False
+    try:
+        import seaborn as sns  # type: ignore
+
+        if len(raw) > 0:
+            sns.kdeplot(raw, ax=ax, color="blue", fill=True, label=f"raw_{dimension_name}")
+            plotted = True
+        if len(filtered) > 0:
+            sns.kdeplot(filtered, ax=ax, color="orange", fill=True, label=f"filtered_{dimension_name}")
+            plotted = True
+    except Exception as exc:  # pragma: no cover - fallback for minimal environments
+        print(f"Warning: seaborn KDE failed for {dimension_name} ({exc}); falling back to histogram density.")
+        bins = 60
+        if len(raw) > 0:
+            ax.hist(raw, bins=bins, density=True, alpha=0.35, color="blue", label=f"raw_{dimension_name}")
+            plotted = True
+        if len(filtered) > 0:
+            ax.hist(filtered, bins=bins, density=True, alpha=0.35, color="orange", label=f"filtered_{dimension_name}")
+            plotted = True
+
+    if not plotted:
+        plt.close(fig)
+        return
+
+    ax.set_title(f"{dimension_name.upper()} Coordinate: Raw vs. Filtered")
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Density")
+    ax.set_xlim(x_limits)
+    ax.legend()
+    fig.suptitle(title, fontsize=16)
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+
+    pdf_file = output_figs_dir / f"2_0_mreye_et_distribution_{dimension_name}_dimension.pdf"
+    png_file = output_figs_dir / f"2_0_mreye_et_distribution_{dimension_name}_dimension.png"
+    fig.savefig(pdf_file, dpi=300, bbox_inches="tight")
+    fig.savefig(png_file, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved KDE plot: {pdf_file}")
+    print(f"Saved KDE plot: {png_file}")
+
+
 def choose_file_interactive(use_gui_picker: bool = True) -> Path:
     if use_gui_picker:
         if platform.system() == "Darwin":
@@ -157,6 +323,10 @@ def sync_to_filer_if_available(
     to_sync.extend(sorted(local_fig_dir.glob(f"*_{criteria_tag}.pdf")))
     to_sync.extend(sorted(local_fig_dir.glob(f"*_{criteria_tag}.png")))
     to_sync.extend(sorted(local_fig_dir.glob(f"*_{criteria_tag}.txt")))
+    to_sync.extend(sorted(local_fig_dir.glob("2_0_mreye_et_distribution_*_dimension.pdf")))
+    to_sync.extend(sorted(local_fig_dir.glob("2_0_mreye_et_distribution_*_dimension.png")))
+    to_sync.extend(sorted(local_fig_dir.glob("2_0_mreye_et_event_stats.txt")))
+    to_sync.extend(sorted(local_fig_dir.glob("2_0_mreye_et_event_stats.json")))
     for stem in (
         "2_0_mreye_et_raw",
         "2_0_mreye_et_nomo",
@@ -260,6 +430,10 @@ def main() -> int:
     coor_recording_LIBRE = coor_recording.iloc[:libre_samples].copy()
     coor_data_LIBRE_raw = copy.deepcopy(coor_data_LIBRE)
 
+    output_root = args.output_root.expanduser().resolve()
+    output_figs_dir = output_root / "output_figs" / subject_idx
+    output_figs_dir.mkdir(parents=True, exist_ok=True)
+
     if "blink" in coor_recording_LIBRE.columns:
         blink_mask = coor_recording_LIBRE.blink > 0
         coor_data_LIBRE.loc[blink_mask, ["x_coordinate", "y_coordinate"]] = np.nan
@@ -270,6 +444,8 @@ def main() -> int:
         coor_data_LIBRE.loc[fixation_mask, ["x_coordinate", "y_coordinate"]] = np.nan
         coor_recording_LIBRE.loc[fixation_mask, ["x_coordinate", "y_coordinate"]] = np.nan
 
+    save_event_statistics(output_figs_dir=output_figs_dir, subject_idx=subject_idx, coor_recording_libre=coor_recording_LIBRE)
+
     coor_data_LIBRE_ft = copy.deepcopy(coor_data_LIBRE)
 
     X_coord_ft = coor_data_LIBRE_ft["x_coordinate"]
@@ -279,10 +455,6 @@ def main() -> int:
     theta_h_, theta_h_m, rho_v_, rho_v_m = cal_angles(X_coord_ft, Y_coord_ft, med_coor_ft)
     h_dis_ft, v_dis_ft = cal_disp(theta_h_, theta_h_m, rho_v_, rho_v_m)
     discarded_x_mask, discarded_y_mask = filter_criteria(h_dis_ft, v_dis_ft, criteria_ratio=criteria_ratio)
-
-    output_root = args.output_root.expanduser().resolve()
-    output_figs_dir = output_root / "output_figs" / subject_idx
-    output_figs_dir.mkdir(parents=True, exist_ok=True)
 
     # Cell [97] figure(s): horizontal + vertical displacement plots.
     plot_h_v_disp(h_dis_ft, v_dis_ft, discarded_x_mask, discarded_y_mask, criteria_ratio=criteria_ratio)
@@ -325,6 +497,25 @@ def main() -> int:
     )
     plt.savefig(output_figs_dir / "2_0_mreye_et_nomo.pdf", dpi=300, bbox_inches="tight")
     plt.savefig(output_figs_dir / "2_0_mreye_et_nomo.png", dpi=300, bbox_inches="tight")
+
+    _plot_kde_dimension(
+        output_figs_dir=output_figs_dir,
+        raw_values=coor_data_LIBRE_raw["x_coordinate"],
+        filtered_values=coor_data_LIBRE["x_coordinate"],
+        dimension_name="x",
+        title="Distribution of Eye-Tracking Data Along X Dimension",
+        x_label="X Coordinate (px)",
+        x_limits=(250, 550),
+    )
+    _plot_kde_dimension(
+        output_figs_dir=output_figs_dir,
+        raw_values=coor_data_LIBRE_raw["y_coordinate"],
+        filtered_values=coor_data_LIBRE["y_coordinate"],
+        dimension_name="y",
+        title="Distribution of Eye-Tracking Data Along Y Dimension",
+        x_label="Y Coordinate (px)",
+        x_limits=(250, 350),
+    )
 
     count_true = int(np.sum(Preserve_mask))
     print(f"Preserved #ET samples: {count_true}")

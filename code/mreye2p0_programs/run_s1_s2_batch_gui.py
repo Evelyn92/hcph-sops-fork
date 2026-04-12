@@ -143,8 +143,8 @@ class BatchApp(tk.Tk):
 
     def build_py_cmd(self, script: Path, use_conda: bool, env_name: str) -> list[str]:
         if use_conda:
-            return ["conda", "run", "-n", env_name, "python", str(script)]
-        return [sys.executable, str(script)]
+            return ["conda", "run", "-n", env_name, "python", "-u", str(script)]
+        return [sys.executable, "-u", str(script)]
 
     def run_pipeline(self, dataset_dir: Path, criteria: list[float], env_name: str, use_conda: bool) -> None:
         try:
@@ -226,4 +226,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

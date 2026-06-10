@@ -77,8 +77,8 @@ def filter_criteria(h_dis, v_dis, criteria_ratio=0.5):
 
 def filter_XY_with_mask(coor_data, discarded_x_mask, discarded_y_mask, seq_name=None):
     from matplotlib.font_manager import FontProperties
-    title_font = FontProperties(family='Times New Roman', size=20, weight='bold')
-    axis_font = FontProperties(family='Times New Roman', size=16)
+    title_font = FontProperties(family='DejaVu Serif', size=20, weight='bold')
+    axis_font = FontProperties(family='DejaVu Serif', size=16)
 #     x y coordinate accordingly
     coor_data_clean = copy.deepcopy(coor_data)
     X_coord = coor_data_clean["x_coordinate"].values
@@ -125,8 +125,8 @@ def filter_XY_with_mask(coor_data, discarded_x_mask, discarded_y_mask, seq_name=
 def plot_h_v_disp(h_dis, v_dis, discard_x_mask, discard_y_mask, criteria_ratio=0.5):
     
     from matplotlib.font_manager import FontProperties
-    title_font = FontProperties(family='Times New Roman', size=20, weight='bold')
-    
+    title_font = FontProperties(family='DejaVu Serif', size=20, weight='bold')
+
     start_sample = 0
     end_sample = len(h_dis)
     t_axis_xy = np.arange(start_sample, end_sample, 1)/1000
@@ -181,9 +181,9 @@ def plot_h_v_disp(h_dis, v_dis, discard_x_mask, discard_y_mask, criteria_ratio=0
 def visualization_func(fig_title,coor_data_raw, coor_data, coor_data_clean):
     from matplotlib.font_manager import FontProperties
     
-    title_font = FontProperties(family='Times New Roman', size=20, weight='bold')
-    axis_font = FontProperties(family='Times New Roman', size=16)
-    
+    title_font = FontProperties(family='DejaVu Serif', size=20, weight='bold')
+    axis_font = FontProperties(family='DejaVu Serif', size=16)
+
     fig, ax= plt.subplots(figsize=(4, 3))
     turn_off_ticks = True
     if turn_off_ticks:

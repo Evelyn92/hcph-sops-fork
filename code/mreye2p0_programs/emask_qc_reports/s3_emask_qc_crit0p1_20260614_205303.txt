@@ -1,0 +1,7 @@
+criterion: 0.1
+checked_rows: 2
+ok_rows: 2
+problem_rows: 0
+
+0033 | T1w | MID33091 | expected=371817 | actual=371817 | OK |
+0033 | T2w | MID33106 | expected=646618 | actual=646618 | OK |

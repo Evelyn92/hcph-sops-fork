@@ -1,0 +1,17 @@
+criterion: 0.1
+checked_rows: 12
+ok_rows: 2
+problem_rows: 10
+
+0038 | T1w | MID38068 | expected=371817 | actual=371817 | OK |
+0038 | T2w | MID38072 | expected=646618 | actual=646618 | OK |
+0039 | T1w | MID00036 | expected=371817 | actual=missing | MISSING | mask file not found
+0039 | T2w | MID00041 | expected=646618 | actual=missing | MISSING | mask file not found
+0041 | T1w | MID00569 | expected=371817 | actual=missing | MISSING | mask file not found
+0041 | T2w | MID00563 | expected=646618 | actual=missing | MISSING | mask file not found
+0042 | T1w | MID00075 | expected=371817 | actual=missing | MISSING | mask file not found
+0042 | T2w | MID00071 | expected=646618 | actual=missing | MISSING | mask file not found
+0043 | T1w | MID00114 | expected=371817 | actual=missing | MISSING | mask file not found
+0043 | T2w | MID00119 | expected=646618 | actual=missing | MISSING | mask file not found
+0044 | T1w | MID00240 | expected=371817 | actual=missing | MISSING | mask file not found
+0044 | T2w | MID00236 | expected=646618 | actual=missing | MISSING | mask file not found

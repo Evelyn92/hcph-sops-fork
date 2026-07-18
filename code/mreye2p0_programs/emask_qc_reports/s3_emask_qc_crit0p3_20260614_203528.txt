@@ -1,0 +1,7 @@
+criterion: 0.3
+checked_rows: 2
+ok_rows: 2
+problem_rows: 0
+
+0031 | T1w | MID31025 | expected=371817 | actual=371817 | OK |
+0031 | T2w | MID31040 | expected=646618 | actual=646618 | OK |

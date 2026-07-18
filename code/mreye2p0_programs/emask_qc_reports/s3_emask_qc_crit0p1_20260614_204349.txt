@@ -1,0 +1,7 @@
+criterion: 0.1
+checked_rows: 2
+ok_rows: 2
+problem_rows: 0
+
+0032 | T1w | MID32058 | expected=371817 | actual=371817 | OK |
+0032 | T2w | MID32074 | expected=646618 | actual=646618 | OK |

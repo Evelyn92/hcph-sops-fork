@@ -293,6 +293,215 @@ def extract_run_info(input_file: Path) -> tuple[str, int]:
     return subject_idx, t_idx
 
 
+def read_et_recording(input_file: Path, metadata: dict[str, object]) -> tuple[pd.DataFrame, str]:
+    recording = pd.read_csv(input_file, sep="\t", na_values="n/a")
+    columns = metadata.get("Columns")
+
+    if "timestamp" not in recording.columns and isinstance(columns, list):
+        fallback = pd.read_csv(input_file, sep="\t", na_values="n/a", header=None)
+        if len(fallback.columns) == len(columns):
+            fallback.columns = [str(column) for column in columns]
+            return fallback, "headerless_with_metadata_columns"
+
+    unnamed_columns = [column for column in recording.columns if str(column).startswith("Unnamed:")]
+    if unnamed_columns:
+        recording = recording.drop(columns=unnamed_columns)
+        return recording, "headered_with_legacy_index_column"
+
+    return recording, "headered"
+
+
+def get_start_timestamp(metadata: dict[str, object]) -> int:
+    start_timestamp = metadata.get("StartTimestamp")
+    if start_timestamp is not None:
+        return int(start_timestamp)
+
+    for stamp, msg in metadata.get("LoggedMessages", []):
+        if msg in {START_RECORDING_MESSAGE, START_RECORDING_MESSAGE_BACKUP}:
+            return int(stamp)
+
+    # Older S1 notebooks stored the raw EyeLink timestamp in StartTime.
+    start_time = metadata.get("StartTime")
+    if start_time is not None:
+        return int(start_time)
+
+    raise RuntimeError("Could not find ET start timestamp in metadata")
+
+
+def get_trigger_timestamp(metadata: dict[str, object]) -> int:
+    for stamp, msg in metadata.get("LoggedMessages", []):
+        if msg == TRIGGER_MESSAGE:
+            return int(stamp)
+    raise RuntimeError("Could not find MRI trigger message in LoggedMessages")
+
+
+def summarize_s2_input(recording: pd.DataFrame, metadata: dict[str, object], input_format: str) -> dict[str, object]:
+    timestamp = recording["timestamp"] if "timestamp" in recording.columns else pd.Series(dtype=float)
+    event_columns = [column for column in ("fixation", "saccade", "blink") if column in recording.columns]
+    coordinate_columns = [column for column in ("x_coordinate", "y_coordinate") if column in recording.columns]
+
+    return {
+        "input_format": input_format,
+        "sample_count": int(len(recording)),
+        "metadata_columns_count": len(metadata.get("Columns", [])) if isinstance(metadata.get("Columns"), list) else None,
+        "timestamp_start": int(timestamp.iloc[0]) if not timestamp.empty else None,
+        "timestamp_end": int(timestamp.iloc[-1]) if not timestamp.empty else None,
+        "timestamp_monotonic_increasing": bool(timestamp.is_monotonic_increasing) if not timestamp.empty else False,
+        "duplicate_timestamps": int(timestamp.duplicated().sum()) if not timestamp.empty else 0,
+        "coordinate_nan_ratio": {
+            column: float(recording[column].isna().mean()) for column in coordinate_columns
+        },
+        "event_coverage_ratio": {
+            column: float(recording[column].fillna(0).astype(bool).mean()) for column in event_columns
+        },
+        "sampling_frequency": metadata.get("SamplingFrequency"),
+    }
+
+
+def analyze_event_mask_overlap(coor_recording: pd.DataFrame) -> dict[str, object]:
+    required = ["fixation", "saccade", "blink"]
+    missing = [column for column in required if column not in coor_recording.columns]
+    if missing:
+        raise KeyError(f"Missing event columns for overlap analysis: {missing}")
+
+    fixation = coor_recording["fixation"].fillna(0).astype(bool).to_numpy()
+    saccade = coor_recording["saccade"].fillna(0).astype(bool).to_numpy()
+    blink = coor_recording["blink"].fillna(0).astype(bool).to_numpy()
+    non_fixation = ~fixation
+
+    n_samples = len(coor_recording)
+    nonfix_explained = non_fixation & (saccade | blink)
+    nonfix_unexplained = non_fixation & ~(saccade | blink)
+
+    counts = {
+        "samples": int(n_samples),
+        "fixation": int(fixation.sum()),
+        "non_fixation": int(non_fixation.sum()),
+        "saccade": int(saccade.sum()),
+        "blink": int(blink.sum()),
+        "nonfix_and_saccade": int((non_fixation & saccade).sum()),
+        "nonfix_and_blink": int((non_fixation & blink).sum()),
+        "saccade_and_blink": int((saccade & blink).sum()),
+        "nonfix_explained_by_saccade_or_blink": int(nonfix_explained.sum()),
+        "nonfix_not_saccade_or_blink": int(nonfix_unexplained.sum()),
+        "fixation_and_saccade": int((fixation & saccade).sum()),
+        "fixation_and_blink": int((fixation & blink).sum()),
+        "fixation_and_saccade_and_blink": int((fixation & saccade & blink).sum()),
+    }
+    denominators = {
+        "all_samples": max(n_samples, 1),
+        "non_fixation": max(counts["non_fixation"], 1),
+        "saccade": max(counts["saccade"], 1),
+        "blink": max(counts["blink"], 1),
+    }
+    ratios = {
+        "nonfix_fraction_of_all": counts["non_fixation"] / denominators["all_samples"],
+        "saccade_fraction_of_all": counts["saccade"] / denominators["all_samples"],
+        "blink_fraction_of_all": counts["blink"] / denominators["all_samples"],
+        "nonfix_explained_by_saccade_or_blink_fraction_of_nonfix": counts[
+            "nonfix_explained_by_saccade_or_blink"
+        ]
+        / denominators["non_fixation"],
+        "nonfix_not_saccade_or_blink_fraction_of_nonfix": counts[
+            "nonfix_not_saccade_or_blink"
+        ]
+        / denominators["non_fixation"],
+        "saccade_overlaps_blink_fraction_of_saccade": counts["saccade_and_blink"]
+        / denominators["saccade"],
+        "blink_overlaps_saccade_fraction_of_blink": counts["saccade_and_blink"]
+        / denominators["blink"],
+        "fixation_overlaps_saccade_fraction_of_saccade": counts["fixation_and_saccade"]
+        / denominators["saccade"],
+        "fixation_overlaps_blink_fraction_of_blink": counts["fixation_and_blink"]
+        / denominators["blink"],
+    }
+
+    warnings = []
+    if ratios["nonfix_not_saccade_or_blink_fraction_of_nonfix"] > 0.10:
+        warnings.append(
+            "More than 10% of non-fixation samples are neither saccade nor blink; inspect parser/event labels."
+        )
+    if ratios["fixation_overlaps_saccade_fraction_of_saccade"] > 0.05:
+        warnings.append(
+            "More than 5% of saccade samples overlap fixation; event definitions may not be mutually exclusive."
+        )
+    if ratios["fixation_overlaps_blink_fraction_of_blink"] > 0.05:
+        warnings.append(
+            "More than 5% of blink samples overlap fixation; event definitions may not be mutually exclusive."
+        )
+
+    return {"counts": counts, "ratios": ratios, "warnings": warnings}
+
+
+def compute_motion_qc(
+    coor_data: pd.DataFrame,
+    distance_preserve_mask: np.ndarray,
+    sampling_frequency: float,
+    window_samples: int = 15,
+    percentile: float = 90,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, object]]:
+    x_values = coor_data["x_coordinate"].to_numpy(dtype=float)
+    y_values = coor_data["y_coordinate"].to_numpy(dtype=float)
+
+    dx_values = np.diff(x_values, prepend=np.nan)
+    dy_values = np.diff(y_values, prepend=np.nan)
+    step_dist_px = np.sqrt(dx_values**2 + dy_values**2)
+    invalid_step = np.isnan(x_values) | np.isnan(y_values) | np.isnan(dx_values) | np.isnan(dy_values)
+    step_dist_px[invalid_step] = np.nan
+
+    motion_score = (
+        pd.Series(step_dist_px)
+        .rolling(
+            window=window_samples,
+            center=True,
+            min_periods=max(3, window_samples // 3),
+        )
+        .median()
+        .to_numpy()
+    )
+
+    valid_motion = motion_score[~np.isnan(motion_score)]
+    if len(valid_motion) == 0:
+        motion_threshold_px = np.nan
+        low_motion_mask = np.zeros_like(distance_preserve_mask, dtype=bool)
+    else:
+        motion_threshold_px = float(np.nanpercentile(valid_motion, percentile))
+        low_motion_mask = (motion_score <= motion_threshold_px) & ~np.isnan(motion_score)
+
+    distance_preserve_mask = np.asarray(distance_preserve_mask, dtype=bool)
+    combined_preserve_mask = distance_preserve_mask & low_motion_mask
+    diff_mask = distance_preserve_mask != combined_preserve_mask
+    distance_preserved_count = int(distance_preserve_mask.sum())
+    combined_preserved_count = int(combined_preserve_mask.sum())
+    combined_over_distance_ratio = (
+        combined_preserved_count / distance_preserved_count
+        if distance_preserved_count > 0
+        else np.nan
+    )
+    removed_by_motion_ratio = (
+        1.0 - combined_over_distance_ratio if not np.isnan(combined_over_distance_ratio) else np.nan
+    )
+
+    motion_qc = {
+        "enabled_for_main_mask": True,
+        "method": "rolling median of frame-to-frame gaze displacement in pixels",
+        "window_samples": int(window_samples),
+        "window_ms": float(window_samples / sampling_frequency * 1000),
+        "threshold_percentile": float(percentile),
+        "motion_threshold_px": motion_threshold_px,
+        "distance_preserved_samples": distance_preserved_count,
+        "low_motion_samples": int(low_motion_mask.sum()),
+        "combined_preserved_samples": combined_preserved_count,
+        "distance_preserved_ratio": float(distance_preserve_mask.mean()) if len(distance_preserve_mask) else np.nan,
+        "combined_preserved_ratio": float(combined_preserve_mask.mean()) if len(combined_preserve_mask) else np.nan,
+        "combined_over_distance_preserved_ratio": float(combined_over_distance_ratio),
+        "distance_preserved_removed_by_motion_ratio": float(removed_by_motion_ratio),
+        "distance_vs_motion_diff_samples": int(diff_mask.sum()),
+        "distance_vs_motion_diff_ratio": float(diff_mask.mean()) if len(diff_mask) else np.nan,
+    }
+    return motion_score, low_motion_mask, combined_preserve_mask, motion_qc
+
+
 def sync_to_filer_if_available(
     input_file: Path,
     subject_idx: str,
@@ -354,8 +563,11 @@ def main() -> int:
     parser.add_argument("--criteria-ratio", type=float, help="Filter criteria ratio, e.g. 0.15")
     parser.add_argument("--twix-duration", type=float, help="Override twix duration in ms")
     parser.add_argument("--first-trigger-mr-start", type=float, default=0.0)
+    parser.add_argument("--motion-window-samples", type=int, default=15)
+    parser.add_argument("--motion-percentile", type=float, default=90.0)
     parser.add_argument("--output-root", type=Path, default=Path("."), help="Root folder for ./output_figs and ./masks")
     parser.add_argument("--no-gui-picker", action="store_true", help="Disable GUI picker and prompt for a path in terminal.")
+    parser.add_argument("--no-filer-sync", action="store_true", help="Do not rsync masks/figures to the filer.")
     args = parser.parse_args()
 
     input_file = args.input if args.input else choose_file_interactive(use_gui_picker=not args.no_gui_picker)
@@ -379,25 +591,14 @@ def main() -> int:
     print(f"subject_idx = {subject_idx}")
     print(f"T_idx = {t_idx}")
 
-    recording = pd.read_csv(input_file, sep="\t", na_values="n/a")
     metadata = json.loads(metadata_file.read_text())
+    recording, input_format = read_et_recording(input_file, metadata)
+    print(f"Input TSV format detected: {input_format}")
 
     twix_duration = args.twix_duration if args.twix_duration is not None else TWIX_BY_TIDX[t_idx]
 
-    start_timestamp = None
-    trigger_timestamp = None
-    for stamp, msg in metadata.get("LoggedMessages", []):
-        if msg in {START_RECORDING_MESSAGE, START_RECORDING_MESSAGE_BACKUP}:
-            start_timestamp = stamp
-            break
-
-    for stamp, msg in metadata.get("LoggedMessages", []):
-        if msg == TRIGGER_MESSAGE:
-            trigger_timestamp = stamp
-            break
-
-    if start_timestamp is None or trigger_timestamp is None:
-        raise RuntimeError("Could not find start/trigger messages in LoggedMessages")
+    start_timestamp = get_start_timestamp(metadata)
+    trigger_timestamp = get_trigger_timestamp(metadata)
 
     gap_start_dot = start_timestamp - trigger_timestamp
     offset = int(np.round(args.first_trigger_mr_start + gap_start_dot))
@@ -419,6 +620,10 @@ def main() -> int:
     for required in ("x_coordinate", "y_coordinate"):
         if required not in recording.columns:
             raise RuntimeError(f"Missing required column in input TSV: {required}")
+
+    s2_input_sanity = summarize_s2_input(recording, metadata, input_format)
+    print("S2 input sanity summary:")
+    print(json.dumps(to_builtin(s2_input_sanity), indent=2, sort_keys=True))
 
     coor_data = recording[["x_coordinate", "y_coordinate"]].copy()
     coor_recording = recording.copy()
@@ -445,6 +650,11 @@ def main() -> int:
         coor_recording_LIBRE.loc[fixation_mask, ["x_coordinate", "y_coordinate"]] = np.nan
 
     save_event_statistics(output_figs_dir=output_figs_dir, subject_idx=subject_idx, coor_recording_libre=coor_recording_LIBRE)
+    event_overlap_summary = analyze_event_mask_overlap(coor_recording_LIBRE)
+    print("Event mask overlap summary:")
+    print(json.dumps(to_builtin(event_overlap_summary), indent=2, sort_keys=True))
+    for warning in event_overlap_summary["warnings"]:
+        print(f"WARNING: {warning}")
 
     coor_data_LIBRE_ft = copy.deepcopy(coor_data_LIBRE)
 
@@ -470,6 +680,33 @@ def main() -> int:
     coor_data_ft_clean, Preserve_mask, Discard_mask = filter_XY_with_mask(
         coor_data_LIBRE_ft, discarded_x_mask, discarded_y_mask, seq_name=None
     )
+    motion_score_px, low_motion_mask, final_preserve_mask, motion_qc = compute_motion_qc(
+        coor_data=coor_data_LIBRE_ft,
+        distance_preserve_mask=Preserve_mask,
+        sampling_frequency=float(sampling_frequency),
+        window_samples=args.motion_window_samples,
+        percentile=args.motion_percentile,
+    )
+    print("Motion QC summary; final saved mask uses distance AND low-motion:")
+    print(json.dumps(to_builtin(motion_qc), indent=2, sort_keys=True))
+    print(
+        "Motion QC within distance-preserved samples: "
+        f"{motion_qc['combined_over_distance_preserved_ratio']:.4f} remain low-motion; "
+        f"{motion_qc['distance_preserved_removed_by_motion_ratio']:.4f} would be removed by adding motion."
+    )
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    plot_t = np.arange(len(motion_score_px)) / sampling_frequency
+    ax.plot(plot_t, motion_score_px, label="rolling motion score (px)")
+    if not np.isnan(motion_qc["motion_threshold_px"]):
+        ax.axhline(motion_qc["motion_threshold_px"], color="r", linestyle="--", label="motion threshold")
+    ax.set_title("Motion QC: rolling gaze displacement")
+    ax.set_xlabel("time [s]")
+    ax.set_ylabel("pixels")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_figs_dir / f"2_0_mreye_et_motion_qc_{criteria_tag}.pdf", dpi=300, bbox_inches="tight")
+    fig.savefig(output_figs_dir / f"2_0_mreye_et_motion_qc_{criteria_tag}.png", dpi=300, bbox_inches="tight")
 
     visualization_func(
         fig_title="Before vs After (filtering)",
@@ -517,47 +754,94 @@ def main() -> int:
         x_limits=(250, 350),
     )
 
-    count_true = int(np.sum(Preserve_mask))
-    print(f"Preserved #ET samples: {count_true}")
-    print(f"Size of mask before concatenation: {len(Preserve_mask)}")
-    preffix_mask = np.zeros(offset)
+    count_distance_only = int(np.sum(Preserve_mask))
+    count_true = int(np.sum(final_preserve_mask))
+    print(f"Distance-only preserved #ET samples: {count_distance_only}")
+    print(f"Final distance+motion preserved #ET samples: {count_true}")
+    print(f"Size of final mask before concatenation: {len(final_preserve_mask)}")
+    preffix_mask = np.zeros(offset, dtype=np.uint8)
     print(f"Concatenating prefix offset {offset}")
-    Preserve_mask_cat = np.concatenate((preffix_mask, Preserve_mask))
+    Preserve_mask_cat = np.concatenate((preffix_mask, final_preserve_mask.astype(np.uint8))).astype(np.uint8)
     print(f"Size of mask after concatenation: {len(Preserve_mask_cat)}")
     print(f"twix_duration: {twix_duration}")
 
-    assert len(Preserve_mask_cat) == np.round(twix_duration)
+    assert len(Preserve_mask_cat) == int(np.round(twix_duration))
 
     mask_dir = output_root / "masks" / subject_idx
     mask_dir.mkdir(parents=True, exist_ok=True)
     mask_name = f"subject_{subject_idx}_mask_clean_{criteria_ratio}.mat"
     mask_file = mask_dir / mask_name
     sio.savemat(mask_file, {"array": Preserve_mask_cat})
+    metadata_file_out = mask_dir / f"subject_{subject_idx}_mask_clean_{criteria_ratio}_metadata.json"
+    mask_metadata = {
+        "subject_idx": subject_idx,
+        "source_tsv": str(input_file),
+        "final_mask_method": "distance_and_low_motion",
+        "distance_only_used_for_qc_only": True,
+        "T_idx": int(t_idx),
+        "mode": mode,
+        "criteria_ratio": float(criteria_ratio),
+        "motion_window_samples": int(args.motion_window_samples),
+        "motion_percentile": float(args.motion_percentile),
+        "twix_duration_ms": float(twix_duration),
+        "offset_ms": int(offset),
+        "libre_samples": int(libre_samples),
+        "distance_only_preserved_samples_before_offset": count_distance_only,
+        "final_preserved_samples_before_offset": count_true,
+        "mask_samples_before_offset": int(len(final_preserve_mask)),
+        "mask_samples_after_offset": int(len(Preserve_mask_cat)),
+        "final_preserved_ratio_before_offset": float(np.mean(final_preserve_mask)) if len(final_preserve_mask) else np.nan,
+        "final_preserved_ratio_after_offset": float(np.mean(Preserve_mask_cat)) if len(Preserve_mask_cat) else np.nan,
+        "input_sanity": s2_input_sanity,
+        "event_overlap_summary": event_overlap_summary,
+        "motion_qc": motion_qc,
+    }
+    metadata_file_out.write_text(json.dumps(to_builtin(mask_metadata), indent=2, sort_keys=True) + "\n")
+    et_metadata = json.loads(metadata_file.read_text())
+    et_metadata["S2StableMask"] = to_builtin(mask_metadata)
+    metadata_file.write_text(json.dumps(et_metadata, indent=2, sort_keys=True) + "\n")
 
     summary_file = output_figs_dir / f"2_0_mreye_et_summary_{criteria_tag}.txt"
     summary_lines = [
         f"input_file: {input_file}",
+        f"input_format: {input_format}",
         f"subject_idx: {subject_idx}",
         f"T_idx: {t_idx}",
+        "final_mask_method: distance_and_low_motion",
         f"criteria_ratio: {criteria_ratio}",
-        f"Preserved #ET samples: {count_true}",
-        f"Size of mask before concatenation: {len(Preserve_mask)}",
+        f"motion_window_samples: {args.motion_window_samples}",
+        f"motion_percentile: {args.motion_percentile}",
+        f"timestamp_monotonic_increasing: {s2_input_sanity['timestamp_monotonic_increasing']}",
+        f"duplicate_timestamps: {s2_input_sanity['duplicate_timestamps']}",
+        f"coordinate_nan_ratio: {s2_input_sanity['coordinate_nan_ratio']}",
+        f"event_coverage_ratio: {s2_input_sanity['event_coverage_ratio']}",
+        f"distance_only_preserved_samples: {count_distance_only}",
+        f"final_preserved_samples: {count_true}",
+        f"motion_qc: {motion_qc}",
+        f"event_overlap_summary: {event_overlap_summary}",
+        f"Size of mask before concatenation: {len(final_preserve_mask)}",
         f"Concatenating prefix offset {offset}",
         f"Size of mask after concatenation: {len(Preserve_mask_cat)}",
         f"twix_duration: {twix_duration}",
         f"mask_file: {mask_file}",
+        f"mask_metadata_file: {metadata_file_out}",
     ]
     summary_file.write_text("\n".join(summary_lines) + "\n")
 
     print(f"The mask file has been saved here: ./{mask_file.relative_to(output_root).as_posix()}")
+    print(f"The mask metadata file has been saved here: ./{metadata_file_out.relative_to(output_root).as_posix()}")
+    print(f"Merged S2 stable mask metadata into ET JSON sidecar: {metadata_file}")
     print(f"Run summary has been saved here: ./{summary_file.relative_to(output_root).as_posix()}")
-    sync_to_filer_if_available(
-        input_file=input_file,
-        subject_idx=subject_idx,
-        local_mask_file=mask_file,
-        local_fig_dir=output_figs_dir,
-        criteria_tag=criteria_tag,
-    )
+    if args.no_filer_sync:
+        print("Skipping filer sync because --no-filer-sync was set.")
+    else:
+        sync_to_filer_if_available(
+            input_file=input_file,
+            subject_idx=subject_idx,
+            local_mask_file=mask_file,
+            local_fig_dir=output_figs_dir,
+            criteria_tag=criteria_tag,
+        )
     return 0
 
 

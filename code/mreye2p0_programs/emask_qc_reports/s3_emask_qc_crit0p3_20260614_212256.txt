@@ -1,0 +1,6 @@
+criterion: 0.3
+checked_rows: 1
+ok_rows: 1
+problem_rows: 0
+
+0037 | T1w | MID37035 | expected=371817 | actual=371817 | OK |

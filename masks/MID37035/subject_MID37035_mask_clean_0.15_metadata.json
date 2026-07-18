@@ -1,0 +1,85 @@
+{
+  "T_idx": 1,
+  "criteria_ratio": 0.15,
+  "distance_only_preserved_samples_before_offset": 146396,
+  "distance_only_used_for_qc_only": true,
+  "event_overlap_summary": {
+    "counts": {
+      "blink": 12662,
+      "fixation": 354990,
+      "fixation_and_blink": 0,
+      "fixation_and_saccade": 0,
+      "fixation_and_saccade_and_blink": 0,
+      "non_fixation": 16821,
+      "nonfix_and_blink": 12662,
+      "nonfix_and_saccade": 16394,
+      "nonfix_explained_by_saccade_or_blink": 16394,
+      "nonfix_not_saccade_or_blink": 427,
+      "saccade": 16394,
+      "saccade_and_blink": 12662,
+      "samples": 371811
+    },
+    "ratios": {
+      "blink_fraction_of_all": 0.03405493651344366,
+      "blink_overlaps_saccade_fraction_of_blink": 1.0,
+      "fixation_overlaps_blink_fraction_of_blink": 0.0,
+      "fixation_overlaps_saccade_fraction_of_saccade": 0.0,
+      "nonfix_explained_by_saccade_or_blink_fraction_of_nonfix": 0.974615064502705,
+      "nonfix_fraction_of_all": 0.04524072714362942,
+      "nonfix_not_saccade_or_blink_fraction_of_nonfix": 0.025384935497295046,
+      "saccade_fraction_of_all": 0.04409229420323767,
+      "saccade_overlaps_blink_fraction_of_saccade": 0.7723557399048432
+    },
+    "warnings": []
+  },
+  "final_mask_method": "distance_and_low_motion",
+  "final_preserved_ratio_after_offset": 0.35752803126269106,
+  "final_preserved_ratio_before_offset": 0.357533800775125,
+  "final_preserved_samples_before_offset": 132935,
+  "input_sanity": {
+    "coordinate_nan_ratio": {
+      "x_coordinate": 0.024544762781149906,
+      "y_coordinate": 0.02505795536994107
+    },
+    "duplicate_timestamps": 0,
+    "event_coverage_ratio": {
+      "blink": 0.03411363274393942,
+      "fixation": 0.9547457444429608,
+      "saccade": 0.044208565329094805
+    },
+    "input_format": "headered_with_legacy_index_column",
+    "metadata_columns_count": 17,
+    "sample_count": 621599,
+    "sampling_frequency": 1000,
+    "timestamp_end": 10956047,
+    "timestamp_monotonic_increasing": true,
+    "timestamp_start": 10334449
+  },
+  "libre_samples": 371811,
+  "mask_samples_after_offset": 371817,
+  "mask_samples_before_offset": 371811,
+  "mode": "T1",
+  "motion_percentile": 90.0,
+  "motion_qc": {
+    "combined_over_distance_preserved_ratio": 0.9080507664143829,
+    "combined_preserved_ratio": 0.357533800775125,
+    "combined_preserved_samples": 132935,
+    "distance_preserved_ratio": 0.3937376785517373,
+    "distance_preserved_removed_by_motion_ratio": 0.09194923358561713,
+    "distance_preserved_samples": 146396,
+    "distance_vs_motion_diff_ratio": 0.03620387777661231,
+    "distance_vs_motion_diff_samples": 13461,
+    "enabled_for_main_mask": true,
+    "low_motion_samples": 320777,
+    "method": "rolling median of frame-to-frame gaze displacement in pixels",
+    "motion_threshold_px": 1.9105228752870398,
+    "threshold_percentile": 90.0,
+    "window_ms": 15.0,
+    "window_samples": 15
+  },
+  "motion_window_samples": 15,
+  "offset_ms": 6,
+  "source_tsv": "/Volumes/FS_PROJETS/MatTechLab/yiwei.jia/datasets/0037/MID37035_fixation_dots_T1weighted_2026-05-01_17h01.52.420.tsv.gz",
+  "subject_idx": "MID37035",
+  "twix_duration_ms": 371817.0
+}

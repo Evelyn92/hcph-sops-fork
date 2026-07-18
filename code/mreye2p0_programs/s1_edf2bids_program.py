@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -98,6 +99,57 @@ def to_builtin(value: Any) -> Any:
     if isinstance(value, np.generic):
         return value.item()
     return value
+
+
+def summarize_s1_output(
+    recording: pd.DataFrame,
+    metadata: dict[str, Any],
+    events: pd.DataFrame,
+    raw_recording_len: int,
+) -> dict[str, Any]:
+    timestamp = recording["timestamp"] if "timestamp" in recording.columns else pd.Series(dtype=float)
+    sample_count = int(len(recording))
+    duplicate_timestamps = int(timestamp.duplicated().sum()) if not timestamp.empty else 0
+    monotonic_increasing = bool(timestamp.is_monotonic_increasing) if not timestamp.empty else False
+    timestamp_start = int(timestamp.iloc[0]) if not timestamp.empty else None
+    timestamp_end = int(timestamp.iloc[-1]) if not timestamp.empty else None
+    expected_samples = None
+    missing_samples = None
+    if timestamp_start is not None and timestamp_end is not None:
+        expected_samples = int(timestamp_end - timestamp_start + 1)
+        missing_samples = int(max(expected_samples - sample_count, 0))
+
+    coordinate_columns = [
+        column
+        for column in ("eye1_x_coordinate", "eye1_y_coordinate", "eye2_x_coordinate", "eye2_y_coordinate")
+        if column in recording.columns
+    ]
+    event_columns = [column for column in ("eye1_fixation", "eye1_saccade", "eye1_blink") if column in recording.columns]
+
+    return {
+        "sample_count": sample_count,
+        "raw_recording_len": int(raw_recording_len),
+        "timestamp_start": timestamp_start,
+        "timestamp_end": timestamp_end,
+        "timestamp_monotonic_increasing": monotonic_increasing,
+        "duplicate_timestamps": duplicate_timestamps,
+        "expected_samples_from_timestamp_range": expected_samples,
+        "missing_samples_from_timestamp_range": missing_samples,
+        "coordinate_nan_ratio": {
+            column: float(recording[column].isna().mean()) for column in coordinate_columns
+        },
+        "event_coverage_ratio": {
+            column: float(recording[column].fillna(0).astype(bool).mean()) for column in event_columns
+        },
+        "event_rows_by_type": (
+            events["type"].value_counts(dropna=False).to_dict()
+            if "type" in events.columns
+            else {}
+        ),
+        "calibration_count": int(metadata.get("CalibrationCount", 0) or 0),
+        "recorded_eye": metadata.get("RecordedEye"),
+        "sampling_frequency": metadata.get("SamplingFrequency"),
+    }
 
 
 def _to_float(token: str) -> float | None:
@@ -294,8 +346,12 @@ def main() -> int:
     start_rows = messages.trialid.str.contains(args.start_message, case=False, regex=True)
     stop_rows = messages.trialid.str.contains(args.stop_message, case=False, regex=True)
 
-    metadata["StartTime"] = int(messages[start_rows].timestamp.values[-1]) if start_rows.any() else None
-    metadata["StopTime"] = int(messages[stop_rows].timestamp.values[0]) if stop_rows.any() else None
+    start_timestamp = int(messages[start_rows].timestamp.values[-1]) if start_rows.any() else None
+    stop_timestamp = int(messages[stop_rows].timestamp.values[0]) if stop_rows.any() else None
+    metadata["StartTime"] = start_timestamp
+    metadata["StopTime"] = stop_timestamp
+    metadata["StartTimestamp"] = start_timestamp
+    metadata["StopTimestamp"] = stop_timestamp
     messages = messages.loc[~start_rows & ~stop_rows, :]
 
     mode_record = messages.trialid.str.startswith("!MODE RECORD")
@@ -506,12 +562,26 @@ def main() -> int:
             ] = 1
 
     metadata["Columns"] = recording.columns.tolist()
+    if metadata["StartTimestamp"] is not None:
+        metadata["StartTimeSecondsFromFirstSample"] = (
+            metadata["StartTimestamp"] - int(recording["timestamp"].iloc[0])
+        ) / metadata["SamplingFrequency"]
+    if metadata["StopTimestamp"] is not None:
+        metadata["StopTimeSecondsFromFirstSample"] = (
+            metadata["StopTimestamp"] - int(recording["timestamp"].iloc[0])
+        ) / metadata["SamplingFrequency"]
     metadata = to_builtin(deepcopy(metadata))
 
     filename = os.path.splitext(edf_path.name)[0]
     out_tsv, out_json = write_bids_from_df(recording, metadata, out_dir, filename)
+    sanity_report = summarize_s1_output(recording, metadata, events, raw_recording_len)
+    sanity_file = out_dir / f"{filename}_s1_sanity.json"
+    sanity_file.write_text(json.dumps(to_builtin(sanity_report), indent=2, sort_keys=True) + "\n")
     print(f"Saved TSV: {out_tsv}")
     print(f"Saved JSON: {out_json}")
+    print(f"Saved S1 sanity report: {sanity_file}")
+    print("S1 sanity summary:")
+    print(json.dumps(to_builtin(sanity_report), indent=2, sort_keys=True))
     return 0
 
 
